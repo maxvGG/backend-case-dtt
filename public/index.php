@@ -1,47 +1,74 @@
 <?php
-declare(strict_types=1);
 
+use Phalcon\Loader;
+use Phalcon\Mvc\View;
+use Phalcon\Mvc\Application;
 use Phalcon\Di\FactoryDefault;
-
-error_reporting(E_ALL);
-
+use Phalcon\Url;
+use Phalcon\Http\Request;
+// db connection
+use Phalcon\Db\Adapter\Pdo\Mysql as DbAdapter;
+// Define some absolute path constants to aid in locating resources
 define('BASE_PATH', dirname(__DIR__));
 define('APP_PATH', BASE_PATH . '/app');
 
+// Register an autoloader
+$loader = new Loader();
+
+$loader->registerDirs(
+    [
+        APP_PATH . '/controllers/',
+        APP_PATH . '/models/',
+    ]
+);
+
+$loader->register();
+
+// Create a DI
+$di = new FactoryDefault();
+
+// Setup the view component
+$di->set(
+    'view',
+    function () {
+        $view = new View();
+        $view->setViewsDir(APP_PATH . '/views/');
+        return $view;
+    }
+);
+
+// Setup a base URI
+$di->set(
+    'url',
+    function () {
+        $url = new Url();
+        $url->setBaseUri('/');
+        return $url;
+    }
+);
+
+// Setup the database service
+$di->set(
+    'db',
+    function () {
+        return new DbAdapter(
+            [
+                'host'     => '127.0.0.1',
+                'username' => 'root',
+                'password' => '',
+                'dbname'   => 'dtt',
+            ]
+        );
+    }
+);
+
+$application = new Application($di);
+// give correct parameters
+$request = new Request();
 try {
-    /**
-     * The FactoryDefault Dependency Injector automatically registers
-     * the services that provide a full stack framework.
-     */
-    $di = new FactoryDefault();
-
-    /**
-     * Read services
-     */
-    include APP_PATH . '/config/services.php';
-
-    /**
-     * Handle routes
-     */
-    include APP_PATH . '/config/router.php';
-
-    /**
-     * Get config service for use in inline setup below
-     */
-    $config = $di->getConfig();
-
-    /**
-     * Include Autoloader
-     */
-    include APP_PATH . '/config/loader.php';
-
-    /**
-     * Handle the request
-     */
-    $application = new \Phalcon\Mvc\Application($di);
-
-    echo $application->handle($_SERVER['REQUEST_URI'])->getContent();
+    // Handle the request
+    $response = $application->handle($request->getURI());
+    $response->send();
 } catch (\Exception $e) {
-    echo $e->getMessage() . '<br>';
-    echo '<pre>' . $e->getTraceAsString() . '</pre>';
+    echo 'Exception: ', $e->getMessage();
 }
